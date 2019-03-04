@@ -1,0 +1,1 @@
+A Simple JavaScript color picker
