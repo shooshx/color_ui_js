@@ -1,11 +1,20 @@
+"use strict"
 
-ColorPicker = (function(){
+var ColorPicker = (function(){
 
 function addTextChild(elem, txt) {
     var dummy = document.createElement("DIV")
     dummy.innerHTML = txt
     var ne = dummy.firstChild
     elem.appendChild(ne)
+    return ne
+}
+
+function addSiblingAfter(elem, txt) {
+    var dummy = document.createElement("DIV")
+    dummy.innerHTML = txt
+    var ne = dummy.firstChild
+    elem.parentNode.insertBefore(ne, elem.nextSibling)
     return ne
 }
 
@@ -191,8 +200,18 @@ function parse_hex(s) {
     return null
 }
 
-function create_in(elem, sz, onchange) {
-    var canvas = addTextChild(elem, '<canvas width="SZ" height="SZ"></canvas>'.replace(/SZ/g, sz))
+function create_after(elem, sz, visible, onchange) {
+    return create_at(elem, addSiblingAfter, sz, visible, onchange)
+}
+function create_as_child(elem, sz, visible, onchange) {
+    return create_at(elem, addTextChild, sz, visible, onchange)
+}
+
+function create_at(elem, add_func, sz, visible, onchange) 
+{
+    var txt = '<canvas width="SZ" height="SZ" STYLE></canvas>'.replace(/SZ/g, sz)
+                .replace(/STYLE/g, visible ? '' : 'style="display:none;"')
+    var canvas = add_func(elem, txt)
     canvas.style.borderRadius = "7px"
     var ctx = canvas.getContext("2d")
     var cfg = { sz:sz }
@@ -242,10 +261,12 @@ function create_in(elem, sz, onchange) {
     var square_capture = false;
     var bar_capture = false;
     var mouse_act = function(e, isondown) {
-        if (e.buttons != 1 && !square_capture && !bar_capture)
+        // if pressed, make sure it's pressed in us. If moving, make sure we're capturing it
+        console.log(canvas.id + "  capt=" + square_capture)
+        if (!( (e.buttons == 1 && e.target === canvas) || square_capture || bar_capture))
             return
-        // TBD - test scroll
-        var rect = e.target.getBoundingClientRect();
+        console.log(canvas.id + " INNNN")
+        var rect = canvas.getBoundingClientRect();
         var x = e.clientX - rect.left;
         var y = e.clientY - rect.top;
         
@@ -298,9 +319,13 @@ function create_in(elem, sz, onchange) {
         return true
     })
     
-    return { set_color: set_color, sel_col:sel_col }
+    var set_visible = function(v) {
+        canvas.style.display = v ? 'initial':'none'
+    }
+    
+    return { set_color: set_color, sel_col:sel_col, set_visible:set_visible, elem:canvas }
 }
 
-    return { create_in:create_in }
+return { create_as_child:create_as_child, create_after:create_after }
 
 })();
