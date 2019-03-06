@@ -186,16 +186,16 @@ function is_dark(c) {
 }
 
 function make_hex(c) {
-    return "#" + Number(c.r).toString(16).padStart(2,'0') + Number(c.g).toString(16).padStart(2,'0') + Number(c.b).toString(16).padStart(2,'0')
+    return "#" + (Number(c.r).toString(16).padStart(2,'0') + Number(c.g).toString(16).padStart(2,'0') + Number(c.b).toString(16).padStart(2,'0')).toUpperCase()
 }
 
 function parse_hex(s) {
-    if (s[0] != '#')
-        return null
-    if (s.length == 7)
-        return { r: parseInt(s.substr(1,2), 16), g: parseInt(s.substr(3,2), 16), b: parseInt(s.substr(5,2), 16) }
-    if (s.length == 4) {
-        return { r: parseInt(s[1]+s[1], 16), g: parseInt(s[2]+s[2], 16), b: parseInt(s[3]+s[3], 16) }
+    if (s[0] == '#')
+        s = s.substr(1)
+    if (s.length == 6)
+        return { r: parseInt(s.substr(0,2), 16), g: parseInt(s.substr(2,2), 16), b: parseInt(s.substr(4,2), 16) }
+    if (s.length == 3) {
+        return { r: parseInt(s[0]+s[0], 16), g: parseInt(s[1]+s[1], 16), b: parseInt(s[2]+s[2], 16) }
     }
     return null
 }
@@ -213,6 +213,8 @@ function create_at(elem, add_func, sz, visible, onchange)
                 .replace(/STYLE/g, visible ? '' : 'style="display:none;"')
     var canvas = add_func(elem, txt)
     canvas.style.borderRadius = "7px"
+    canvas.tabIndex = 0  // make it focusable
+    canvas.style.outline = "none"  // but don't put a focus border on it
     var ctx = canvas.getContext("2d")
     var cfg = { sz:sz }
     var sel_col = { h:0, s:0, v:0, r:0, g:0, b:0 }
@@ -230,7 +232,7 @@ function create_at(elem, add_func, sz, visible, onchange)
             onchange(sel_col)
     }
     
-    var set_color = function(c) {
+    var set_color = function(c, do_onchange) {
         if (c === sel_col)
             return  // avoid infinite recursion though user code
         if (typeof c == "string")
@@ -251,21 +253,22 @@ function create_at(elem, add_func, sz, visible, onchange)
         else  // get the hue value from the UI instead
             sel_col.h = sel_pos.bar_y
         draw_chart(ctx, cfg, sel_col, sel_pos, presets)
-        if (onchange)
+        if (do_onchange && onchange)
             onchange(sel_col)
     }
     
     col_from_pos()
     draw_chart(ctx, cfg, sel_col, sel_pos, presets)
 
+    // handle color change by draggin gand clicking
     var square_capture = false;
     var bar_capture = false;
     var mouse_act = function(e, isondown) {
         // if pressed, make sure it's pressed in us. If moving, make sure we're capturing it
-        console.log(canvas.id + "  capt=" + square_capture)
+        //console.log(canvas.id + "  capt=" + square_capture)
         if (!( (e.buttons == 1 && e.target === canvas) || square_capture || bar_capture))
-            return
-        console.log(canvas.id + " INNNN")
+            return false
+        //console.log(canvas.id + " INNNN")
         var rect = canvas.getBoundingClientRect();
         var x = e.clientX - rect.left;
         var y = e.clientY - rect.top;
@@ -277,6 +280,7 @@ function create_at(elem, add_func, sz, visible, onchange)
             sel_pos.sq_y = clamp((y - MARGIN)/cfg.sq_sz)
             col_from_pos()
             draw_chart(ctx, cfg, sel_col, sel_pos, presets)
+            return true
         }
         else if (bar_capture || (x > cfg.bar_x && y > MARGIN && x < cfg.bar_x + BAR_SZ && y < cfg.sq_sz+MARGIN)) {
             if (isondown)
@@ -284,12 +288,28 @@ function create_at(elem, add_func, sz, visible, onchange)
             sel_pos.bar_y = clamp((y - MARGIN)/cfg.sq_sz)
             col_from_pos()
             draw_chart(ctx, cfg, sel_col, sel_pos, presets)
+            return true
         }
     }
     
-    canvas.onmousedown = function(e) {
-        mouse_act(e, true)
+    var mouse_move = function(e) {
+        mouse_act(e)
     }
+    document.addEventListener("mouseup", function(e) {
+        square_capture = false;
+        bar_capture = false;
+        document.removeEventListener("mousemove", mouse_move)
+        return true
+    })
+    
+    canvas.onmousedown = function(e) {
+        var do_capture = mouse_act(e, true)
+        if (do_capture) {
+            document.addEventListener("mousemove", mouse_move)
+        }                
+    }
+
+    // handle presets click
     var next_preset_to_set = 0
     canvas.onmouseup = function(e) {
         if (e.which != 1)
@@ -307,17 +327,9 @@ function create_at(elem, add_func, sz, visible, onchange)
         // presets bar
         if (x > MARGIN && y > cfg.bar_y && x < cfg.sq_sz && y < cfg.bar_y + BAR_SZ) {
             var xi = Math.trunc((x - MARGIN)/BAR_SZ)
-            set_color(presets[xi])
+            set_color(presets[xi], true)
         }
-    }
-    document.addEventListener("mousemove", function(e) {
-        mouse_act(e)
-    })
-    document.addEventListener("mouseup", function(e) {
-        square_capture = false;
-        bar_capture = false;
-        return true
-    })
+    }    
     
     var set_visible = function(v) {
         canvas.style.display = v ? 'initial':'none'
@@ -329,3 +341,49 @@ function create_at(elem, add_func, sz, visible, onchange)
 return { create_as_child:create_as_child, create_after:create_after }
 
 })();
+
+
+var ColorEditBox = (function(){
+
+function create_at(edit_elem, sz) 
+{
+    var picker = ColorPicker.create_after(edit_elem, sz, false, function(c) { 
+        if (document.activeElement != edit_elem)
+            edit_elem.value = c.hex  // change the text only if we're not editing
+        edit_elem.style.backgroundColor = c.hex
+        edit_elem.style.color = c.is_dark ? "#fff" : "#000"
+    })
+    picker.elem.style.position = "absolute"
+    var ed_rect = edit_elem.getBoundingClientRect()
+    picker.elem.style.top = ed_rect.bottom + window.scrollY + 2 + "px"
+    picker.elem.style.left = ed_rect.left + window.scrollX + "px"
+    
+    edit_elem.addEventListener("input", function() {
+        picker.set_color(edit_elem.value, true)
+    })
+    
+    edit_elem.addEventListener("focus", function() { picker.set_visible(true) })
+    edit_elem.addEventListener("blur", function(e) { 
+        if (e.relatedTarget !== picker.elem)  // if focus moved from the edit to something not the canvas, hide it
+            picker.set_visible(false) 
+    })
+    
+    picker.elem.addEventListener("focus", function() { 
+        console.log("canvas-focus") 
+    })
+    picker.elem.addEventListener("blur", function(e) { 
+        if (e.relatedTarget !== edit_elem)
+            picker.set_visible(false) 
+    })
+    
+    return picker
+}
+
+return { create_at:create_at }
+})();
+
+
+
+
+
+

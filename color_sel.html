@@ -4,36 +4,13 @@
 <script>
 
 
-var ColorEditBox = (function(){
 
-function create_at(edit_elem, sz) 
-{
-    var picker = ColorPicker.create_after(edit_elem, sz, false, function(c) { 
-        edit_elem.value = c.hex;
-        edit_elem.style.backgroundColor = c.hex
-        edit_elem.style.color = c.is_gray ? "#fff" : "#000"
-    })
-    picker.elem.style.position = "absolute"
-    var ed_rect = edit_elem.getBoundingClientRect()
-    picker.elem.style.top = ed_rect.bottom + window.scrollY + 2 + "px"
-    picker.elem.style.left = ed_rect.left + window.scrollX + "px"
-    
-    
-    edit_elem.addEventListener("focus", function() { picker.set_visible(true) })
-    //edit_elem.addEventListener("blur", function() { picker.set_visible(false) })
-    
-    return picker
-}
-
-
-return { create_at:create_at }
-})();
 
 
 
 var c1, e1
 function start() {
-    c1 = ColorPicker.create_as_child(full, 200, true, function(c) { console.log(c.hex) })
+    c1 = ColorPicker.create_as_child(full, 200, true, function(c) { /*console.log(c.hex)*/ })
     c1.elem.id = "c1"
     e1 = ColorEditBox.create_at(text_in, 200)
     e1.elem.id = "e1"
