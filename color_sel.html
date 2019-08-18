@@ -4,8 +4,79 @@
 <script>
 
 
+var GradientEdit = (function(){
+
+function addTextChild(elem, txt) {
+    var dummy = document.createElement("DIV")
+    dummy.innerHTML = txt
+    var ne = dummy.firstChild
+    elem.appendChild(ne)
+    return ne
+}
+
+MARGIN = 10
+
+// 0                                                  1
+// |--------------------------------------------------|
+//          |-----x----|
+//         0.2   0.3  0.45
+// 0.3-0.2=0.1
+// d = 0.45-0.2 = 0.25
+
+function draw(ctx, cfg, stops) {
+    ctx.fillStyle = "#bbb"
+    ctx.fillRect(0, 0, cfg.width, cfg.height);
+    
+    var id = ctx.getImageData(0, 0, cfg.width, cfg.height)
+    var d = id.data;
+    var len = cfg.width - MARGIN - MARGIN
+    
+    // main bar
+    var next_stop_i = 1
+    var prev = stops[0], next = stops[1]
+   
+    for(var x = 0; x < len; ++x) {
+        var abs_v = x / len
+        // v inside the single range we're in
+        var v = (abs_v - prev.v)/(next.v - prev.v) 
+        if (v > 1.0) {
+            prev = next
+            next_stop_i += 1
+            next = stops[next_stop_i]
+            var v = (abs_v - prev.v)/(next.v - prev.v) 
+        }
+        var nv = 1-v
+        var r = nv * prev.c.r + v * next.c.r
+        var g = nv * prev.c.g + v * next.c.g
+        var b = nv * prev.c.b + v * next.c.b
+        
+        for(y = MARGIN; y < cfg.height - MARGIN; ++y) {
+            var pos_i = ((x+MARGIN) + (y*cfg.width)) * 4
+            d[pos_i] = r
+            d[pos_i+1] = g
+            d[pos_i+2] = b
+        }
+    }
+    
+    ctx.putImageData(id, 0, 0)
+}
+
+function create_at(elem, width, height) {
+    var txt = '<canvas width="WIDTH" height="HEIGHT" STYLE></canvas>'.replace(/WIDTH/g, width).replace(/HEIGHT/g, height)
+    var canvas = addTextChild(elem, txt)
+    canvas.style.borderRadius = "7px"
+    var ctx = canvas.getContext("2d")
+    var cfg = { width:width, height:height }
+    var stops = [ {v:0, c:{r:0,g:255,b:0}}, {v:0.5, c:{r:255,g:0,b:0}}, {v:1, c:{r:255,g:255,b:255}} ]
+    
+    draw(ctx, cfg, stops)
+
+}
 
 
+return { create_at:create_at }
+
+})();
 
 
 var c1, e1
@@ -14,6 +85,7 @@ function start() {
     c1.elem.id = "c1"
     e1 = ColorEditBox.create_at(text_in, 200)
     e1.elem.id = "e1"
+    g1 = GradientEdit.create_at(gradient, 500, 100)
 }
 
 </script>
@@ -34,6 +106,7 @@ function start() {
     <div id="full"></div>
     <hr>
     <input id="text_in"></input>
+    <div id="gradient"></div>
     <br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>b<br>b<br>b<br>C<br>C<br>C<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>
 </body>
 </html>
